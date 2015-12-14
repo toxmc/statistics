@@ -31,7 +31,7 @@ class RandomKey
 			$strings = str_replace('O', '', $strings);
 			$numbers = str_replace('0', '', $numbers);
 		}
-		$pattern = $strings . $number;
+		$pattern = $strings . $numbers;
 		$max = strlen($pattern) - 1;
 		$key = '';
 		for ($i = 0; $i < $length; $i ++) {
