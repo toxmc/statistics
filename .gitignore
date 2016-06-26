@@ -1,0 +1,3 @@
+*.pid
+*.log
+data/cache/filecache/phpsess/*
