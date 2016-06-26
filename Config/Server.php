@@ -16,7 +16,7 @@ class Server
 	public static function getServerConfig()
 	{
 		$config = array(
-			'worker_num' => 2,
+			'worker_num' => 10,
 			// 协议
 			'open_length_check' => true,
 			'package_length_type' => 'N',
@@ -28,7 +28,7 @@ class Server
 			'user' => 'xmc',
 			'group' => 'xmc',
 			'log_file' => 'data/server.log',
-			'heartbeat_check_interval' => 300,
+			'heartbeat_check_interval' => 60,
 			'heartbeat_idle_time' => 300,
 			'daemonize' => false // 守护进程改成true
 		);

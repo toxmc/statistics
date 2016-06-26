@@ -13,6 +13,8 @@ class StatisticClient
 	 * @var array
 	 */
 	protected static $timeMap = array();
+	
+	protected static $client;
 
 	/**
 	 * 模块接口上报消耗时间记时
@@ -38,7 +40,7 @@ class StatisticClient
 	 */
 	public static function report($module, $interface, $success, $code, $msg, $report_address = '')
 	{
-		$report_address = $report_address ? $report_address : 'udp://127.0.0.1:55656';
+		$report_address = $report_address ? $report_address : '127.0.0.1:55656';
 		if (isset(self::$timeMap[$module][$interface]) && self::$timeMap[$module][$interface] > 0) {
 			$time_start = self::$timeMap[$module][$interface];
 			self::$timeMap[$module][$interface] = 0;
@@ -52,7 +54,18 @@ class StatisticClient
 		
 		$cost_time = microtime(true) - $time_start;
 		$bin_data = Protocol::encode($module, $interface, $cost_time, $success, $code, $msg);
-		return self::sendData($report_address, $bin_data);
+		if (extension_loaded('swoole')) {
+		    if (! self::$client || ! self::$client->isConnected()) {
+    		    self::$client = new swoole_client(SWOOLE_TCP | SWOOLE_KEEP, SWOOLE_SOCK_SYNC);
+    		    list($ip, $port) = explode(':', $report_address);
+    		    self::$client->connect($ip, $port);
+		    }
+	        self::$client->send($bin_data);
+	        self::$client->close();
+	        self::$client = null;
+		} else {
+    		return self::sendData($report_address, $bin_data);
+		}
 	}
 
 	/**
@@ -63,7 +76,7 @@ class StatisticClient
 	 */
 	public static function sendData($address, $buffer)
 	{
-		$socket = stream_socket_client($address);
+		$socket = stream_socket_client('tcp://'.$address);
 		if (! $socket) {
 			return false;
 		}
@@ -100,7 +113,7 @@ class Protocol
 		);
 		$string = json_encode($data);
 		$packData = pack('N', strlen($string)).$string;
-		echo strlen($string).$string.PHP_EOL;//log
+// 		echo strlen($string).$string.PHP_EOL;//log
 		return $packData;
 	}
 	

@@ -27,7 +27,7 @@ class Worker {
 	 *  最大日志buffer，大于这个值就写磁盘
 	 * @var integer
 	 */
-	private $max_log_buffer_size = 10;
+	private $max_log_buffer_size = 100;
 	
 	/**
 	 * 多长时间写一次数据到磁盘
@@ -111,7 +111,7 @@ class Worker {
 		}
 	}
 	
-	public function run($ip="0.0.0.0", $port= 55656, $mode = SWOOLE_PROCESS, $type=SWOOLE_SOCK_UDP)
+	public function run($ip="0.0.0.0", $port= 55656, $mode = SWOOLE_PROCESS, $type=SWOOLE_SOCK_TCP)
 	{
 		if (empty($port)) {
 			$port = $this->handleWorkerPort;
@@ -251,7 +251,7 @@ class Worker {
 				});
 			}	
 		}
-		usleep($worker_id);//保证顺序输出格式
+		usleep($worker_id*50000);//保证顺序输出格式
 		echo str_pad($serv->master_pid, self::$_maxMasterPidLength+2),str_pad($serv->manager_pid, self::$_maxManagerPidLength+2),str_pad($serv->worker_id, self::$_maxWorkerIdLength+2), str_pad($serv->worker_pid, self::$_maxWorkerIdLength), "\n";;
 	}
 	
@@ -278,6 +278,8 @@ class Worker {
 		$data = self::decode($data);
 		$connInfo = $serv->connection_info($fd, $from_id);
 		if ($connInfo['server_port'] == $this->handleWorkerPort) {
+		    $redis = $this->getRedis();
+		    $redis->incr('key'.$fd);  // 统计fd共发送多少次数据
 			$module = $data['module'];
 			$interface = $data['interface'];
 			$cost_time = $data['cost_time'];
@@ -481,6 +483,8 @@ class Worker {
 	public function onClose($serv, $fd, $from_id)
 	{
 		$this->log("Worker#{$serv->worker_pid} Client[$fd@$from_id]: fd=$fd is closed");
+		$redis = $this->getRedis();
+		$redis->delete('key'.$fd);
 	}
 	
 	/**
