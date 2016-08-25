@@ -74,12 +74,13 @@ class StatisticClient
 	 * @param string $buffer        	
 	 * @return boolean
 	 */
-	public static function sendData($address, $buffer)
+	public static function sendData($address, $buffer, $timeout = 10)
 	{
-		$socket = stream_socket_client('tcp://'.$address);
+		$socket = stream_socket_client('tcp://'.$address, $errno, $errmsg, $timeout);
 		if (! $socket) {
 			return false;
 		}
+		stream_set_timeout($socket, $timeout);
 		return stream_socket_sendto($socket, $buffer) == strlen($buffer);
 	}
 }
