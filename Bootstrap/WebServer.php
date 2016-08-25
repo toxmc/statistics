@@ -77,6 +77,7 @@ class WebServer
 		} else {
 			swoole_set_process_name("php {$argv[0]}: worker");
 		}
+		usleep($worker_id);
 		echo str_pad($serv->master_pid, self::$_maxMasterPidLength+2),str_pad($serv->manager_pid, self::$_maxManagerPidLength+2),str_pad($serv->worker_id, self::$_maxWorkerIdLength+2), str_pad($serv->worker_pid, self::$_maxWorkerIdLength), "\n";;
 		define('APPLICATION_PATH', dirname(__DIR__));
 	}

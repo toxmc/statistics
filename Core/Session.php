@@ -31,7 +31,7 @@ class Session
 	public function __construct()
 	{
 		if (! $this->cache) {
-			$this->cache = new \Core\Cache\FileCache();
+			$this->cache = new \Core\Cache\RedisCache();
 		}
 		if (! $this->cookie) {
 			$this->cookie = \Core\Cookie::getInstance();
