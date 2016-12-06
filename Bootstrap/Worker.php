@@ -27,7 +27,7 @@ class Worker {
 	 *  最大日志buffer，大于这个值就写磁盘
 	 * @var integer
 	 */
-	private $max_log_buffer_size = 100;
+	private $max_log_buffer_size = 1024000;
 	
 	/**
 	 * 多长时间写一次数据到磁盘
@@ -45,13 +45,20 @@ class Worker {
 	 * 数据多长时间过期,过期删除统计数据
 	 * @var integer
 	 */
-	private $expired_time = 31536000;	//86400*365 一年
+	private $expired_time = 186400;	//86400*10 10天
 	
 	/**
-	 * 日志的redis buffer key
-	 * @var string
+	 * 统计数据
+	 * ip=>modid=>interface=>['code'=>[xx=>count,xx=>count],'suc_cost_time'=>xx,'fail_cost_time'=>xx, 'suc_count'=>xx, 'fail_count'=>xx]
+	 * @var array
 	 */
-	protected $logBufferKey = 'logBuffer';
+	protected $statisticData = array();
+	
+	/**
+	 * 日志的buffer
+	 * @var string
+	*/
+	protected $logBuffer = '';
 	
 	/**
 	 * 存放统计数据的目录
@@ -70,12 +77,6 @@ class Worker {
 	 * @var string
 	 */
 	protected $masterPidPath = '/pid/master.pid';
-	
-	/**
-	 * redis统计数据 key
-	 * @var string
-	 */
-	protected $statisticDataKey = 'statisticData';
 	protected $handleWorkerPort = 55656;
 	protected $handleProviderPort = 55858;
 	protected $udpFinderport = 55859;
@@ -119,7 +120,7 @@ class Worker {
 			$this->handleWorkerPort = $port;
 		}
 		$serv = new \swoole_server($ip, $port, $mode, $type);	//处理客户端发送的数据
-		$serv->addlistener('0.0.0.0', $this->handleProviderPort, SWOOLE_SOCK_TCP|SWOOLE_SOCK_UDP); //处理统计页面请求的数据
+		$serv->addlistener('0.0.0.0', $this->handleProviderPort, SWOOLE_SOCK_TCP); //处理统计页面请求的数据
 		$serv->addlistener('0.0.0.0', $this->udpFinderport, SWOOLE_SOCK_UDP); //recv udp broadcast
 		$serv->config = \Config\Server::getServerConfig();
 		$serv->set($serv->config);
@@ -278,8 +279,6 @@ class Worker {
 		$data = self::decode($data);
 		$connInfo = $serv->connection_info($fd, $from_id);
 		if ($connInfo['server_port'] == $this->handleWorkerPort) {
-		    $redis = $this->getRedis();
-		    $redis->incr('key'.$fd);  // 统计fd共发送多少次数据
 			$module = $data['module'];
 			$interface = $data['interface'];
 			$cost_time = $data['cost_time'];
@@ -294,26 +293,22 @@ class Worker {
 			$this->collectStatistics('AllData', 'Statistics', $cost_time, $success, $ip, $code, $msg);
 			// 失败记录日志
 			if (! $success) {
-				$redis = $this->getRedis();
-				$logBuffer = $redis->get($this->logBufferKey);
-				$logBuffer .= date('Y-m-d H:i:s', $time) . "\t$ip\t$module::$interface\tcode:$code\tmsg:$msg\n";
-				$redis->set($this->logBufferKey, $logBuffer);
-				if (strlen($logBuffer) >= $this->max_log_buffer_size) {
+				$this->logBuffer .= date('Y-m-d H:i:s', $time) . "\t$ip\t$module::$interface\tcode:$code\tmsg:$msg\n";
+				if (strlen($this->logBuffer) >= $this->max_log_buffer_size) {
 					$this->writeLogToDisk();
 				}
 			}
 		} else if($connInfo['server_port'] == $this->handleProviderPort) {
-				$provider = \Bootstrap\Provider::getInstance();
-				$provider->message($serv, $fd, $from_id, $data);
+			$serv->task(array($fd,$data));
 		} else if($connInfo['server_port'] == $this->udpFinderport) {
-				if (empty($data)) {
-					return false;
-				}
-				// 无法解析的包
-				if (empty($data['cmd']) || $data['cmd'] != 'REPORT_IP') {
-					return false;
-				}
-				return $serv->send($fd, json_encode(array('result' => 'ok')));
+			if (empty($data)) {
+				return false;
+			}
+			// 无法解析的包
+			if (empty($data['cmd']) || $data['cmd'] != 'REPORT_IP') {
+				return false;
+			}
+			return $serv->send($fd, json_encode(array('result' => 'ok')));
 		}else {
 			echo '端口错误'.PHP_EOL;
 		}
@@ -332,18 +327,15 @@ class Worker {
 	 */
 	protected function collectStatistics($module, $interface, $cost_time, $success, $ip, $code, $msg)
 	{
-		$redis = $this->getRedis();
-		$statisticData = json_decode($redis->get($this->statisticDataKey), true);
-		$statisticData = empty($statisticData) ? array() : $statisticData;
 		// 统计相关信息
-		if (! isset($statisticData[$ip])) {
-			$statisticData[$ip] = array();
+		if (! isset($this->statisticData[$ip])) {
+			$this->statisticData[$ip] = array();
 		}
-		if (! isset($statisticData[$ip][$module])) {
-			$statisticData[$ip][$module] = array();
+		if (! isset($this->statisticData[$ip][$module])) {
+			$this->statisticData[$ip][$module] = array();
 		}
-		if (! isset($statisticData[$ip][$module][$interface])) {
-			$statisticData[$ip][$module][$interface] = array(
+		if (! isset($this->statisticData[$ip][$module][$interface])) {
+			$this->statisticData[$ip][$module][$interface] = array(
 				'code' => array(),
 				'suc_cost_time' => 0,
 				'fail_cost_time' => 0,
@@ -351,18 +343,17 @@ class Worker {
 				'fail_count' => 0
 			);
 		}
-		if (! isset($statisticData[$ip][$module][$interface]['code'][$code])) {
-			$statisticData[$ip][$module][$interface]['code'][$code] = 0;
+		if (! isset($this->statisticData[$ip][$module][$interface]['code'][$code])) {
+			$this->statisticData[$ip][$module][$interface]['code'][$code] = 0;
 		}
-		$statisticData[$ip][$module][$interface]['code'][$code] ++;
+		$this->statisticData[$ip][$module][$interface]['code'][$code] ++;
 		if ($success) {
-			$statisticData[$ip][$module][$interface]['suc_cost_time'] += $cost_time;
-			$statisticData[$ip][$module][$interface]['suc_count'] ++;
+			$this->statisticData[$ip][$module][$interface]['suc_cost_time'] += $cost_time;
+			$this->statisticData[$ip][$module][$interface]['suc_count'] ++;
 		} else {
-			$statisticData[$ip][$module][$interface]['fail_cost_time'] += $cost_time;
-			$statisticData[$ip][$module][$interface]['fail_count'] ++;
+			$this->statisticData[$ip][$module][$interface]['fail_cost_time'] += $cost_time;
+			$this->statisticData[$ip][$module][$interface]['fail_count'] ++;
 		}
-		$redis->set($this->statisticDataKey, json_encode($statisticData));
 	}
 	
 	/**
@@ -373,26 +364,22 @@ class Worker {
 	{
 		$time = time();
 		// 循环将每个ip的统计数据写入磁盘
-		$redis = $this->getRedis();
-		$statisticData = json_decode($redis->get($this->statisticDataKey), true);
-		if (is_array($statisticData)) {
-			foreach($statisticData as $ip => $mod_if_data) {
-				foreach($mod_if_data as $module=>$items) {
-					// 文件夹不存在则创建一个
-					$file_dir = Config::$dataPath . $this->statisticDir.$module;
-					if(!is_dir($file_dir)) {
-						umask(0);
-						mkdir($file_dir, 0777, true);
-					}
-					// 依次写入磁盘
-					foreach($items as $interface=>$data) {
-						file_put_contents($file_dir. "/{$interface}.".date('Y-m-d'), "$ip\t$time\t{$data['suc_count']}\t{$data['suc_cost_time']}\t{$data['fail_count']}\t{$data['fail_cost_time']}\t".json_encode($data['code'])."\n", FILE_APPEND | LOCK_EX);
-					}
+		foreach($this->statisticData as $ip => $mod_if_data) {
+			foreach($mod_if_data as $module=>$items) {
+				// 文件夹不存在则创建一个
+				$file_dir = Config::$dataPath . $this->statisticDir.$module;
+				if(!is_dir($file_dir)) {
+					umask(0);
+					mkdir($file_dir, 0777, true);
+				}
+				// 依次写入磁盘
+				foreach($items as $interface=>$data) {
+					file_put_contents($file_dir. "/{$interface}.".date('Y-m-d'), "$ip\t$time\t{$data['suc_count']}\t{$data['suc_cost_time']}\t{$data['fail_count']}\t{$data['fail_cost_time']}\t".json_encode($data['code'])."\n", FILE_APPEND | LOCK_EX);
 				}
 			}
-			// 清空统计
-			$redis->set($this->statisticDataKey, '');
 		}
+		// 清空统计
+		$this->statisticData = array();
 	}
 	
 	/**
@@ -402,14 +389,12 @@ class Worker {
 	public function writeLogToDisk()
 	{
 		// 没有统计数据则返回
-		$redis = $this->getRedis();
-		$logBuffer = $redis->get($this->logBufferKey);
-		if(empty($logBuffer)) {
+		if(empty($this->logBuffer)) {
 			return;
 		}
 		// 写入磁盘
-		file_put_contents(Config::$dataPath . $this->logDir . date('Y-m-d'), $logBuffer, FILE_APPEND | LOCK_EX);
-		$redis->set($this->logBufferKey, '');
+		file_put_contents(Config::$dataPath . $this->logDir . date('Y-m-d'), $this->logBuffer, FILE_APPEND | LOCK_EX);
+		$this->logBuffer = '';
 	}
 	
 	/**
@@ -422,7 +407,9 @@ class Worker {
 	 */
 	public function onTask(\swoole_server $serv, $task_id, $from_id, $data)
 	{
-		//保留回调函数,暂时不用
+	    list($fd,$req) = $data;
+	    $provider = \Bootstrap\Provider::getInstance();
+	    $provider->message($serv, $fd, $from_id, $req);
 	}
 	
 	/**
@@ -483,8 +470,6 @@ class Worker {
 	public function onClose($serv, $fd, $from_id)
 	{
 		$this->log("Worker#{$serv->worker_pid} Client[$fd@$from_id]: fd=$fd is closed");
-		$redis = $this->getRedis();
-		$redis->delete('key'.$fd);
 	}
 	
 	/**

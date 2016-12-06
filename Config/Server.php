@@ -23,8 +23,11 @@ class Server
 			'package_length_offset' => 0,
 			'package_body_start' => 4,
 			'package_max_length' => 8192,
-			// 'task_ipc_mode' => 2,
-			// 'task_worker_num' => 2,
+		    
+			'task_ipc_mode' => 2,
+			'task_worker_num' => 2,
+			'task_max_request' => 500, // 防止内存泄漏
+			
 			'user' => 'xmc',
 			'group' => 'xmc',
 			'log_file' => 'data/server.log',
