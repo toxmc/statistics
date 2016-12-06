@@ -1,3 +1,0 @@
-Using $this when not in object context (/var/www/code/statistics-master/Core/Session.php:46)
-Stack trace:
-#0 unknown(0): Bootstrap\WebServer->handleFatal()

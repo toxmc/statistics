@@ -1,3 +1,0 @@
-[2015-06-11 14:49:37 *3441.0]	WARN	zm_deactivate_swoole: Fatal error: Access level to Bootstrap\Provider::$instance must be public (as in class Bootstrap\Worker) in /var/www/code/statistics-master/Bootstrap/Provider.php on line 306.
-[2015-06-11 14:49:55 *3536.0]	WARN	zm_deactivate_swoole: Fatal error: Access level to Bootstrap\Provider::$instance must be public (as in class Bootstrap\Worker) in /var/www/code/statistics-master/Bootstrap/Provider.php on line 306.
-[2015-06-11 14:50:25 *3538.0]	WARN	zm_deactivate_swoole: Fatal error: Access level to Bootstrap\Provider::$instance must be public (as in class Bootstrap\Worker) in /var/www/code/statistics-master/Bootstrap/Provider.php on line 306.
