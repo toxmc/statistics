@@ -1,4 +1,5 @@
 *.pid
 *.log
-data/cache/filecache/phpsess/*
+data/*
+Config/Cache/*
 data/statistic/*
