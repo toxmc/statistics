@@ -180,24 +180,6 @@ class Worker
     }
 
     /**
-     * 返回redis链接资源
-     *
-     * @return resource
-     */
-    function getRedis()
-    {
-        if (empty($this->redis) || !$this->redis->info()) {
-            $this->redis = new \Redis();
-            $redisConfig = \Config\Redis::getConfig();
-            $res = $this->redis->connect($redisConfig['host'], $redisConfig['port']);
-            if (empty($res)) {
-                echo "connect Redis failed!\n";
-            }
-        }
-        return $this->redis;
-    }
-
-    /**
      * 日志
      *
      * @param string $msg
@@ -273,7 +255,7 @@ class Worker
             // 定时保存统计数据(不同进程数据隔离)
             $that = &$this;
             $serv->tick($this->write_period_length, function ($id) use ($that) {
-                echo 'tick one' . PHP_EOL;
+//                echo 'tick one #worker_id:' . $worker_id . PHP_EOL;
                 $that->writeStatisticsToDisk();
                 $that->writeLogToDisk();
             });
@@ -282,7 +264,7 @@ class Worker
             $expireTime = $this->expired_time;
             // 定时清理统计数据
             $serv->tick($this->clear_period_length, function ($id) use ($datapath, $expireTime, $that) {
-                echo 'tick two' . PHP_EOL;
+//                echo 'tick two #worker_id:' . $worker_id . PHP_EOL;
                 $that->clearDisk($datapath . $this->statisticDir, $expireTime);
                 $that->clearDisk($datapath . $this->logDir, $expireTime);
             });
