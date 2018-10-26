@@ -139,7 +139,7 @@ EOT;
 
 function multiRequestStAndModules($module, $interface, $date)
 {
-	\Statistics\Lib\Cache::$statisticDataCache['statistic'] = '';
+	\Statistics\Lib\Cache::$statisticDataCache['statistic'] = [];
 	
 	$buffer = json_encode(array(
 		'cmd' => 'get_statistic',
@@ -151,16 +151,18 @@ function multiRequestStAndModules($module, $interface, $date)
 	$ip_list = (! empty($_GET['ip']) && is_array($_GET['ip'])) ? $_GET['ip'] : \Statistics\Lib\Cache::$ServerIpList;
 	$reqest_buffer_array = array();
 	$port = \Config\Config::$ProviderPort;
-	;
+
 	foreach ($ip_list as $ip) {
 		$reqest_buffer_array["$ip:$port"] = $buffer;
 	}
 	$read_buffer_array = multiRequest($reqest_buffer_array);
 	foreach ($read_buffer_array as $address => $buf) {
 		list ($ip, $port) = explode(':', $address);
+
 		$body_data = json_decode(trim($buf), true);
 		$statistic_data = isset($body_data['statistic']) ? $body_data['statistic'] : '';
 		$modules_data = isset($body_data['modules']) ? $body_data['modules'] : array();
+
 		// 整理modules
 		foreach ($modules_data as $mod => $interfaces) {
 			if (! isset(\Statistics\Lib\Cache::$modulesDataCache[$mod])) {
