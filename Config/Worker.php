@@ -27,6 +27,6 @@ class Worker
 		return $config;
 	}
 	
-	static public $masterPidPath = '/pid/master.pid'; //worker master pid path
-	static public $webPidPath = '/pid/web.pid'; //web master pid path
+	static public $masterPidPath = '/data/master.pid'; //worker master pid path
+	static public $webPidPath = '/data/web.pid'; //web master pid path
 }

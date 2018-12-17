@@ -18,7 +18,7 @@ class WebServer
      *
      * @var string
      */
-    protected $webPidPath = '/pid/web.pid';
+    protected $webPidPath = '/data/web.pid';
 
     /**
      * MasterPid命令时格式化输出

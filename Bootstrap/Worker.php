@@ -89,7 +89,7 @@ class Worker
      *
      * @var string
      */
-    protected $masterPidPath = '/pid/master.pid';
+    protected $masterPidPath = '/data/master.pid';
     protected $handleWorkerPort = 55656;
     protected $handleProviderPort = 55858;
     protected $udpFinderPort = 55859;
@@ -345,16 +345,14 @@ class Worker
      * 接收数据 UDP
      *
      * @param \swoole\server $serv
-     * @param int            $fd
-     * @param int            $from_id
-     * @param array          $data
+     * @param string         $data
+     * @param array          $connInfo
      *
      * @return mixed
      */
-    public function onPacket(\swoole_server $serv, $fd, $from_id, $data)
+    public function onPacket(\swoole_server $serv, $data, $connInfo)
     {
         $data = self::decode($data);
-        $connInfo = $serv->connection_info($fd, $from_id);
 
         if ($connInfo['server_port'] == $this->udpFinderPort) {
             if (empty($data)) {
@@ -364,7 +362,10 @@ class Worker
             if (empty($data['cmd']) || $data['cmd'] != 'REPORT_IP') {
                 return false;
             }
-            return $serv->send($fd, json_encode(array('result' => 'ok')));
+            $ret = $serv->sendto($connInfo['server_socket'], $connInfo['port'], json_encode(array('result' => 'ok')));
+            if (!$ret) {
+                $this->log("udp send error. code:".swoole_errno().",msg:".swoole_strerror(swoole_errno()));
+            }
         } else {
             echo '端口错误' . PHP_EOL;
         }
