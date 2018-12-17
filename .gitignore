@@ -1,5 +1,4 @@
 *.pid
 *.log
-data/*
 *cache.php
 data/statistic/*
