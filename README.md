@@ -1,6 +1,8 @@
 # statistics
 一个运用php与swoole实现的统计监控系统
 
+> 如果有使用`laravel` 的朋友，推荐另外一个项目[fast-laravel](https://github.com/toxmc/fast-laravel)。欢迎使用，喜欢的话给个star鼓励下。谢谢各位
+
 ## 界面截图
 ![Swoole statistics screenshot one](https://raw.githubusercontent.com/smalleyes/statistics/master/doc/1.png)
 
